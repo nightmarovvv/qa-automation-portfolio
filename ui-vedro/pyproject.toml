@@ -1,0 +1,47 @@
+[project]
+name = "taskflow-e2e"
+version = "0.1.0"
+description = "End-to-end test framework for the TaskFlow demo SPA — vedro + Playwright + d42 schemas + Allure"
+authors = [{ name = "Alexey Shabunin" }]
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+dependencies = [
+    "vedro>=1.13",
+    "vedro-allure-reporter>=1.8",
+    "vedro-playwright>=0.4",
+    "playwright>=1.47",
+    "d42>=2.3",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["config"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["interfaces*", "contexts*", "mocks*", "schemas*", "helpers*", "dicts*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict_optional = true
+ignore_missing_imports = true
