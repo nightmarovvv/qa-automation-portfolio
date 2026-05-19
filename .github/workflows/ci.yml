@@ -102,18 +102,21 @@ jobs:
 
       - name: Download api results
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: allure-results-api
           path: allure-merged/api
 
       - name: Download ui-pytest results
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: allure-results-ui-pytest
           path: allure-merged/ui-pytest
 
       - name: Download ui-vedro results
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: allure-results-ui-vedro
           path: allure-merged/ui-vedro
