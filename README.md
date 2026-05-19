@@ -60,6 +60,31 @@
 
 ---
 
+## 🎯 see a real assertion fail loudly
+
+The SPA wraps `loadTasks` in a 300 ms debounce. The badge in the corner
+counts every `GET /api/tasks` the page makes. Five keystrokes in 200 ms
+— **the counter goes ×0 → ×1**. Anything else would be a regression in
+the debounce, and the test would fail with the exact number it saw.
+
+<div align="center">
+<img src="docs/img/demo-search-debounce.gif" width="900" alt="Search debounce — 5 chars typed, 1 request fired" />
+</div>
+
+```python
+assert len(mock.requests) == 1, (
+    f"debounce should coalesce 5 keystrokes into 1 GET, "
+    f"got {len(mock.requests)}: {[r.url for r in mock.requests]}"
+)
+```
+
+This is the test running in CI right now. The assertion message tells
+you exactly what went wrong — not "test failed", but "got 3 calls
+when 1 was expected, and here are their URLs". That's the difference
+between flaky-flavoured tests and load-bearing ones.
+
+---
+
 ## 🗺 architecture
 
 ```mermaid
