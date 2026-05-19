@@ -1,71 +1,229 @@
+<div align="center">
+
 # qa-automation-portfolio
 
-One application. Two complete UI test architectures. A REST API suite
-on top. Same Allure dashboard.
+**One application. Two UI test architectures. A REST API suite on top. Same Allure dashboard.**
 
-The point of this repo isn't the app — it's how the tests are written.
-The right test architecture depends on team size, suite size, and what
-the team already knows. I'm equally at home in both stacks on the UI
-side, and I'd rather show that than argue it.
+[![ci](https://github.com/nightmarovvv/qa-automation-portfolio/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nightmarovvv/qa-automation-portfolio/actions/workflows/ci.yml)
+[![python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](#stack)
+[![pytest](https://img.shields.io/badge/pytest-8.3-0A9EDC?logo=pytest&logoColor=white)](#)
+[![playwright](https://img.shields.io/badge/playwright-1.47-2EAD33?logo=playwright&logoColor=white)](#)
+[![allure](https://img.shields.io/badge/allure-2.30-FF4D4D)](#)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
+### → [**Live Allure report**](https://nightmarovvv.github.io/qa-automation-portfolio/) ←
+
+</div>
+
+---
+
+> Test architecture is a tradeoff, not a religion. This repo shows the
+> same SPA tested two different ways — a classic `pytest` + POM suite
+> for the 80%, and a `vedro` + `d42` suite for the deep end — so you can
+> see how I think about *when* each stack earns its weight, not just
+> *how* I write either one.
+
+---
+
+## 📊 numbers
+
+| | api | ui-pytest | ui-vedro |
+|---|---|---|---|
+| tests / scenarios | **25** | **11** | **7 (one ×3)** |
+| runtime           | ~3s   | ~12s  | ~5s |
+| stack             | pytest + requests + ApiManager | pytest + Playwright + POM | vedro + Playwright + d42 |
+| isolation         | wipe store per test | mocks via `page.route()` | typed `MockedRoute` w/ strict counts |
+| auth              | real JWT against `backend/` | n/a (mocked) | n/a (mocked) |
+
+**43 tests, ~17s in CI, zero flakes.** Everything runs hermetically on the GitHub Actions matrix below.
+
+---
+
+## 🗺 architecture
+
+```mermaid
+flowchart LR
+    subgraph SUT
+        SPA["app/<br/>TaskFlow SPA<br/>(HTML + CSS + 1 JS file)"]
+        BE["backend/<br/>FastAPI + JWT<br/>(in-memory store)"]
+    end
+
+    subgraph "test suites"
+        UIP["ui-pytest/<br/>pytest + Playwright + POM<br/>mocks via page.route()"]
+        UIV["ui-vedro/<br/>vedro + d42 + Webbricks-style POM<br/>typed MockedRoute"]
+        API["api/<br/>requests + ApiManager facade<br/>real HTTP, real JWT"]
+    end
+
+    subgraph "ci / reporting"
+        CI["GitHub Actions<br/>matrix job (api · ui-pytest · ui-vedro)"]
+        AL["Allure on<br/>GitHub Pages"]
+    end
+
+    UIP -->|http.server -d ../app| SPA
+    UIV -->|http.server -d ../app| SPA
+    API -->|HTTP /v1/*| BE
+    UIP --> CI
+    UIV --> CI
+    API --> CI
+    CI -->|combined results| AL
 ```
-.
-├── app/             TaskFlow SPA — fixture under test (HTML + CSS + 1 JS file)
-├── backend/         Minimal FastAPI service, used by the API suite
-├── ui-pytest/       Track A — pytest + Playwright + classic Page Object Model
-├── ui-vedro/        Track B — vedro + d42 + Webbricks-style page objects
-├── api/             pytest + requests + ApiManager facade (shared shape)
-└── .github/workflows/ci.yml
+
+---
+
+## 🌱 start where your stack lives
+
+| If your team uses…        | Open                                       |
+|---------------------------|--------------------------------------------|
+| pytest + Playwright + POM | [**ui-pytest/**](ui-pytest/)               |
+| vedro + d42 + Playwright  | [**ui-vedro/**](ui-vedro/)                 |
+| REST API testing          | [**api/**](api/)                           |
+| FastAPI fixture backend   | [**backend/**](backend/)                   |
+
+The SPA in `app/` is the same in every case. The drawer, the debounce,
+the validation, the toast — same product. What changes is the test
+side.
+
+---
+
+## ⚖️ same test, two stacks (read this if nothing else)
+
+The single strongest piece of evidence in the repo: the **same**
+assertion — "the SPA's 300 ms debounce coalesces 5 keystrokes into one
+backend call" — written in both styles.
+
+<table>
+<tr>
+<th width="50%">ui-pytest <sub>(classic POM, pytest)</sub></th>
+<th width="50%">ui-vedro <sub>(BDD steps, typed mock-server)</sub></th>
+</tr>
+<tr>
+<td valign="top">
+
+```python
+class TestSearch:
+
+    @pytest.mark.smoke
+    def test_debounce_collapses_keystrokes(self, board):
+        matching = fake_task(title="Alpha launch retrospective")
+        mock = mock_tasks_list(
+            board.page, {"data": [matching], "total": 1}
+        )
+
+        board.open()
+        board.wait_until_ready()
+        mock.requests.clear()
+
+        board.search("alpha", delay_ms=30)
+        board.page.wait_for_timeout(600)
+
+        assert len(mock.requests) == 1
+        assert mock.requests[0].query == {"q": "alpha"}
 ```
 
-## start where your stack lives
+</td>
+<td valign="top">
 
-| If your team uses… | Open |
-|--------------------|------|
-| pytest + Playwright + POM | [ui-pytest/](ui-pytest/) |
-| vedro + d42 + Playwright  | [ui-vedro/](ui-vedro/) |
-| REST API testing          | [api/](api/) |
-| FastAPI fixture backend   | [backend/](backend/) |
+```python
+@allure_labels(
+    Feature.Search, Story.Search,
+    Priority.Critical, AllureID("B-301"),
+)
+class Scenario(vedro.Scenario):
+    subject = "Search input debounces keystrokes..."
 
-The TaskFlow SPA in `app/` is the same in every case. The drawer, the
-debounce, the validation, the toast — same product. What changes is the
-test side.
+    async def given_matching_task(self):
+        self.matching_id = fake(ValidIDSchema)
+        self.search_response = {
+            "data": [fake(TaskSchema % {
+                "id": self.matching_id,
+                "title": "Alpha launch retrospective",
+            })],
+            "total": 1,
+        }
 
-## architecture choices, when each pays off
+    async def when_user_types(self):
+        async with mocked_tasks_list(
+            self.page, self.search_response,
+            wait_for_requests=None,
+        ) as self.mock:
+            await self.board.header.search_input.type(
+                "alpha", delay_ms=40
+            )
+            await self.board.task_list.get_list_task_by_id(
+                self.matching_id
+            ).wait_for()
 
-|                              | ui-pytest (pytest + POM)               | ui-vedro (vedro + d42)                            |
-|------------------------------|----------------------------------------|---------------------------------------------------|
-| Best fit                     | <300 tests, 1–3 QA, one product surface | 1000+ tests, 5+ QA, contract-heavy domain         |
-| Style                        | classic POM, function-scope fixtures   | BDD-style steps, state-guaranteed contexts        |
-| Locators                     | `data-test` (or CSS/xpath where it fits) | `data-test` strictly — no CSS/xpath               |
-| Mocks                        | per-test `page.route()` helpers        | typed `MockedRoute` w/ `history` + strict counts  |
-| API contracts in UI tests    | dict literals + `fake_*` helpers       | `d42` schemas (`fake(Schema % {...})`)            |
-| Allure labels                | `@allure.feature/.story` directly      | typed catalog enforced by decorator               |
-| Onboarding cost              | low                                    | higher, pays back at scale                        |
-| Iteration speed              | fast                                   | slower per test, more guarantees per test         |
-| Reading group                | familiar to most pytest users          | familiar to teams already on the vedro stack      |
+    async def then_exactly_one_backend_call(self):
+        assert len(self.mock.history) == 1
 
-Neither one is "better." `ui-pytest` is what I'd reach for on a smaller
-team or a new project. `ui-vedro` is what earns its weight once the
-suite outgrows fixtures and the team has contract-shaped pain that
-schemas solve.
+    async def and_request_carried_the_query(self):
+        assert self.mock.history[0].query == {"q": "alpha"}
+```
 
-## test counts and runtime
+</td>
+</tr>
+</table>
 
-| Suite       | Tests | Runtime           |
-|-------------|------:|-------------------|
-| ui-pytest   |    11 | ~12s (chromium)   |
-| ui-vedro    |     7 | ~5s (chromium)    |
-| api         |    22 | ~3s (no browser)  |
+Same product. Same assertion. Different texture. **That's the point of
+the repo.** Both are correct; one fits a 10-test side project, the other
+fits a 1000-test suite with five QAs reading each other's code.
 
-CI publishes a combined Allure report on every push to `main`.
+---
 
-→ **[Live Allure report](https://nightmarovvv.github.io/qa-automation-portfolio/)** *(published from `.github/workflows/ci.yml`)*
+## 🔌 api/ — fixture chain (the most interesting 50 lines)
 
-## running everything locally
+```mermaid
+flowchart TB
+    A["http_session<br/><i>scope=session</i><br/>requests.Session(), default headers"]
+    B["auth_token<br/><i>scope=session</i><br/>POST /v1/auth/login → JWT (once per run)"]
+    C["auth_session<br/><i>scope=session</i><br/>http_session + Authorization: Bearer ..."]
+    D["api_manager<br/><i>scope=class</i><br/>ApiManager(auth_session) — facade over AuthAPI, TasksAPI"]
+    E["clean_tasks<br/><i>scope=function</i><br/>DELETE /v1/tasks before each test that asks"]
+    A --> B --> C --> D --> E
+```
+
+`auth_token` is `scope="session"` because POST /login is ~200 ms — 100
+tests at function-scope would burn 20 sec doing nothing useful.
+`clean_tasks` is per-function because state isolation between tests is
+non-negotiable. **Picking the scope is the whole engineering exercise**,
+and `api/conftest.py` is annotated for it.
+
+---
+
+## 🧩 architecture choices — when each stack pays off
+
+|                       | ui-pytest (pytest + POM)            | ui-vedro (vedro + d42)                              |
+|-----------------------|-------------------------------------|-----------------------------------------------------|
+| Best fit              | <300 tests, 1–3 QA                  | 1000+ tests, 5+ QA                                  |
+| Onboarding cost       | low                                 | higher, pays back at scale                          |
+| Locators              | `data-test` (or CSS/xpath if it fits) | `data-test` only — CSS/xpath forbidden by convention |
+| Mocks                 | per-test `page.route()` helpers     | typed `MockedRoute`, `history`, strict count check  |
+| API contracts in UI   | dict literals, `fake_*` helpers     | d42 schemas (`fake(Schema % {...})`)                |
+| Allure labels         | `@allure.feature/.story` direct     | typed catalog, order enforced by decorator          |
+| Iteration speed       | fast                                | slower per test, more guarantees per test           |
+| Reading group         | familiar to any pytest user         | familiar to teams on the vedro stack                |
+
+Neither is "better". `ui-pytest` is what I'd reach for on a smaller
+team. `ui-vedro` earns its weight once contract-shaped pain starts
+showing up in fixtures.
+
+---
+
+## 🧪 what this repo demonstrates (for HR keyword filters too)
+
+- **UI automation** — Playwright (sync + async), Page Object Model, data-test locators, debounce verification, error-recovery flows
+- **API automation** — pytest + requests + facade pattern (`ApiManager`), session/class/function fixture scopes, JWT auth, CRUD + filters + validation
+- **Mocking** — Playwright `route()` interception (per-test + reusable helpers), typed `RecordedRequest` with strict count assertions
+- **Contracts** — d42 schemas with source-cited bounds (HTML attr / regex / API), reused across mocks and assertions
+- **Reporting** — Allure, GitHub Pages publishing, typed label catalog, parametrized scenarios with unique TMS ids
+- **CI/CD** — GitHub Actions matrix, hermetic test runs, artifact upload, combined Pages deploy on main
+- **Backend** — FastAPI service with JWT + Pydantic validation (just enough to back the API suite)
+
+---
+
+## 🚀 running everything locally
 
 ```bash
-# 1. install all the things
 python -m venv .venv && source .venv/bin/activate
 pip install -r backend/requirements.txt \
             -r api/requirements.txt \
@@ -73,32 +231,37 @@ pip install -r backend/requirements.txt \
 pip install -e ui-vedro
 playwright install chromium
 
-# 2. each suite has its own entry point — see its README
-( cd backend && uvicorn main:app --port 8000 ) &     # API needs the backend
-( cd api && pytest -v )
-( cd ui-pytest && pytest -v )
-( cd ui-vedro && make test )
+# api suite needs the backend up
+( cd backend && uvicorn main:app --port 8000 ) &
+
+cd api        && pytest -v
+cd ui-pytest  && pytest -v
+cd ui-vedro   && make test
 ```
 
-The `app/` SPA is plain static files. UI suites boot a `python -m
-http.server` against it; the FastAPI in `backend/` is only there for the
-API suite.
+The SPA in `app/` is plain static files. UI suites boot
+`python -m http.server` against it; the FastAPI in `backend/` is only
+there for the API suite.
 
-## what's worth opening first
+---
 
-- `ui-pytest/tests/test_search.py` and `ui-vedro/scenarios/board/search_input_debounces_keystrokes.py`
-  — same product, same assertion, two different ways to write it. Read
-  them side by side.
-- `api/custom_requester/custom_requester.py` — the base class every API
-  client extends. Every request becomes an allure step with request +
-  response attached.
-- `api/conftest.py` — the fixture chain (`http_session` → `auth_token`
-  → `auth_session` → `api_manager`). Picking the scopes is half the
-  engineering.
-- `ui-vedro/mocks/mocked_route.py` — async mock-server with typed
-  `history`. The closest a Playwright-driven test will get to running
-  against mountebank/jj.
+## 📂 layout
 
-## license
+```
+.
+├── app/             TaskFlow SPA — fixture under test
+├── backend/         minimal FastAPI service (JWT + tasks)
+├── ui-pytest/       Track A — pytest + Playwright + classic POM
+├── ui-vedro/        Track B — vedro + d42 + Webbricks-style PO
+├── api/             pytest + requests + ApiManager facade
+└── .github/workflows/ci.yml
+```
 
-MIT.
+---
+
+<div align="center">
+
+Built with care. MIT.<br/>
+<sub>If you're hiring, I'd love a conversation about <em>when</em> this style of architecture earns its weight versus where it's overkill — that's the most interesting one.</sub>
+
+</div>
