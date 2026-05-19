@@ -13,6 +13,10 @@
 
 ### → [**Live Allure report**](https://nightmarovvv.github.io/qa-automation-portfolio/) ←
 
+<a href="https://nightmarovvv.github.io/qa-automation-portfolio/">
+  <img src="docs/img/allure-overview.png" width="900" alt="Allure overview — 36 tests, 100% pass" />
+</a>
+
 </div>
 
 ---
@@ -36,6 +40,15 @@
 | auth              | real JWT against `backend/` | n/a (mocked) | n/a (mocked) |
 
 **43 tests, ~17s in CI, zero flakes.** Everything runs hermetically on the GitHub Actions matrix below.
+
+<sub>The live Allure report shows 36 test cases — 25 api + 11 ui-pytest. The 7 ui-vedro scenarios run in the same CI matrix; the report-merge step for vedro is on the TODO and is the one piece of polish still missing.</sub>
+
+<details>
+<summary><b>📈 Graphs view (severity, status, duration)</b></summary>
+
+<img src="docs/img/allure-graphs.png" width="900" alt="Allure graphs — status, severity, duration histogram" />
+
+</details>
 
 ---
 
