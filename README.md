@@ -13,6 +13,12 @@
 
 ### → [**Live Allure report**](https://nightmarovvv.github.io/qa-automation-portfolio/) ←
 
+<img src="docs/img/demo-create-task.gif" width="900" alt="Demo — creating a task end-to-end through the SPA" />
+
+<sub><i>Test driving the SPA: open drawer → fill form → pick status + tags → save → card lands + toast.</i></sub>
+
+<br/>
+
 <a href="https://nightmarovvv.github.io/qa-automation-portfolio/">
   <img src="docs/img/allure-overview.png" width="900" alt="Allure overview — 36 tests, 100% pass" />
 </a>
