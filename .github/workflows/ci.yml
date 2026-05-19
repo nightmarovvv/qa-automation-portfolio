@@ -1,0 +1,148 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [api, ui-pytest, ui-vedro]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install backend deps (api suite)
+        if: matrix.suite == 'api'
+        run: pip install -r backend/requirements.txt
+
+      - name: Start backend (api suite)
+        if: matrix.suite == 'api'
+        run: |
+          nohup uvicorn --app-dir backend main:app --host 127.0.0.1 --port 8000 > backend.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8000/v1/health > /dev/null && break
+            sleep 0.3
+          done
+
+      - name: Install api suite deps
+        if: matrix.suite == 'api'
+        run: pip install -r api/requirements.txt
+
+      - name: Run api suite
+        if: matrix.suite == 'api'
+        working-directory: api
+        run: pytest -v
+
+      - name: Install ui-pytest deps
+        if: matrix.suite == 'ui-pytest'
+        run: |
+          pip install -r ui-pytest/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Run ui-pytest suite
+        if: matrix.suite == 'ui-pytest'
+        working-directory: ui-pytest
+        run: pytest -v
+
+      - name: Install ui-vedro deps
+        if: matrix.suite == 'ui-vedro'
+        working-directory: ui-vedro
+        run: |
+          pip install -e ".[dev]"
+          python -m playwright install --with-deps chromium
+
+      - name: Run ui-vedro suite
+        if: matrix.suite == 'ui-vedro'
+        working-directory: ui-vedro
+        run: |
+          # the Makefile boots the SPA, runs vedro, tears it down
+          make test
+
+      - name: Upload allure-results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.suite }}
+          path: |
+            ${{ matrix.suite }}/allure-results
+          retention-days: 14
+
+  publish-report:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download api results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-api
+          path: allure-merged/api
+
+      - name: Download ui-pytest results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-ui-pytest
+          path: allure-merged/ui-pytest
+
+      - name: Download ui-vedro results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results-ui-vedro
+          path: allure-merged/ui-vedro
+
+      - name: Flatten results
+        run: |
+          mkdir -p allure-results
+          # prefix each result file with the suite name so test ids don't collide
+          for suite in api ui-pytest ui-vedro; do
+            if [ -d "allure-merged/$suite" ]; then
+              find "allure-merged/$suite" -maxdepth 1 -type f | while read f; do
+                cp "$f" "allure-results/${suite}__$(basename "$f")"
+              done
+            fi
+          done
+
+      - name: Install Allure CLI
+        run: |
+          curl -sSL https://github.com/allure-framework/allure2/releases/download/2.30.0/allure-2.30.0.tgz | tar -xz
+          echo "$PWD/allure-2.30.0/bin" >> $GITHUB_PATH
+
+      - name: Generate Allure report
+        run: allure generate allure-results --clean -o allure-report
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: allure-report
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
