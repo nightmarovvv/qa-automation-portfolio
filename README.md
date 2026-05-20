@@ -1,5 +1,11 @@
 <div align="center">
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/hero-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/img/hero-light.svg">
+  <img src="docs/img/hero-dark.svg" alt="qa-automation-portfolio — tests that fail loudly, on purpose" width="100%">
+</picture>
+
 # qa-automation-portfolio
 
 The same SPA. Three test architectures. One Allure dashboard.
