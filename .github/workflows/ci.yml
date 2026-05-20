@@ -112,7 +112,7 @@ jobs:
       - name: Upload allure-results
         if: always()
         continue-on-error: true  # Azure blob storage can be flaky; tests already passed
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results-${{ matrix.suite }}
           path: |
@@ -193,7 +193,7 @@ jobs:
 
       - name: Stash history for the next run
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-history-snapshot
           path: allure-report/history
