@@ -20,7 +20,7 @@ class Scenario(vedro.Scenario):
         self.page = await opened_browser_page()
 
     async def given_search_query(self):
-        self.query = "alpha"  # five characters, typed one by one below
+        self.query = "alpha"
 
     async def given_matching_task(self):
         self.matching_task_id = fake(ValidIDSchema)

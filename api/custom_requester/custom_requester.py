@@ -11,6 +11,9 @@ class CustomRequester:
     #   - allure step + attachments for every request
     #   - expected_status check (raises AssertionError on mismatch)
 
+    # 10s covers the slowest CRUD here (POST /tasks + json validation + DB-ish
+    # in-memory write) with margin. If a test needs longer, it passes timeout
+    # explicitly — silent global creep is how flake tolerances drift up.
     DEFAULT_TIMEOUT = 10
 
     def __init__(self, session: requests.Session, base_url: str):

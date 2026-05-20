@@ -18,7 +18,7 @@ The same SPA. Three test architectures. One Allure dashboard.
 
 <br/>
 
-[**Landing**](https://nightmarovvv.github.io/qa-automation-portfolio/) · [**Live Allure**](https://nightmarovvv.github.io/qa-automation-portfolio/report/) · [Hiring lead](#for-the-hiring-lead) · [Fellow QA](#for-the-fellow-qa) · [Tradeoffs](#tradeoffs)
+[**Landing**](https://nightmarovvv.github.io/qa-automation-portfolio/) · [**Live Allure**](https://nightmarovvv.github.io/qa-automation-portfolio/report/) · [Skim](#skim-path) · [Read](#read-path) · [Tradeoffs](#tradeoffs)
 
 <br/>
 
@@ -34,20 +34,17 @@ A `pytest` + Playwright + POM suite for the 80% of teams. A `vedro` +
 `d42` + Webbricks-style suite for the 20% that grow into a thousand
 tests. A REST API suite hitting a real FastAPI service with real JWT.
 
-## for the hiring lead
+## skim path
 
-If you're deciding whether to schedule the next interview, three
-artifacts answer most questions:
+Deciding whether to schedule a call: open the [**live Allure
+report**](https://nightmarovvv.github.io/qa-automation-portfolio/report/),
+then [**Same test, two stacks**](#same-test-two-stacks), then
+[**Tradeoffs**](#tradeoffs). About four minutes; covers most of the
+interview.
 
-1. The [**live Allure report**](https://nightmarovvv.github.io/qa-automation-portfolio/report/) — 36 cases, 100% pass, rebuilt on every push to `main`.
-2. [**Same test, two stacks**](#same-test-two-stacks) — the identical debounce assertion written against the same SPA in pytest and in vedro. Read them side by side; that's the senior conversation.
-3. [**Tradeoffs**](#tradeoffs) — when each stack earns its weight, where it overspends.
+## read path
 
-Email and Telegram at the bottom.
-
-## for the fellow QA
-
-Five files, ~250 lines total:
+Five files, ~250 lines total, in this order:
 
 1. [`ui-vedro/mocks/mocked_route.py`](ui-vedro/mocks/mocked_route.py) — typed `MockedRoute` with `.history` and a strict count check on `__aexit__`.
 2. [`ui-vedro/schemas/__init__.py`](ui-vedro/schemas/__init__.py) — every constraint cites its source.
