@@ -159,6 +159,52 @@ will actually maintain.
 
 → [ADR-001](docs/adr/0001-locators-data-test-only.md) · [ADR-002](docs/adr/0002-mock-count-on-exit.md) · [ADR-003](docs/adr/0003-schemas-cite-source.md) · [ADR-004](docs/adr/0004-typed-allure-labels.md) · [ADR-005](docs/adr/0005-fixture-scopes-picked.md)
 
+## architecture
+
+```mermaid
+flowchart LR
+    subgraph SUT
+        SPA["app/<br/>TaskFlow SPA<br/>(HTML + CSS + 1 JS file)"]
+        BE["backend/<br/>FastAPI + JWT<br/>(in-memory store)"]
+    end
+
+    subgraph "test suites"
+        UIP["ui-pytest/<br/>pytest + Playwright + POM<br/>mocks via page.route()"]
+        UIV["ui-vedro/<br/>vedro + d42 + Webbricks-style POM<br/>typed MockedRoute"]
+        API["api/<br/>requests + ApiManager facade<br/>real HTTP, real JWT"]
+    end
+
+    subgraph "ci / reporting"
+        CI["GitHub Actions<br/>matrix job (api · ui-pytest · ui-vedro)"]
+        AL["Allure on<br/>GitHub Pages"]
+    end
+
+    UIP -->|http.server -d ../app| SPA
+    UIV -->|http.server -d ../app| SPA
+    API -->|HTTP /v1/*| BE
+    UIP --> CI
+    UIV --> CI
+    API --> CI
+    CI -->|combined results| AL
+```
+
+## api fixture chain
+
+```mermaid
+flowchart TB
+    A["http_session<br/><i>scope=session</i><br/>requests.Session(), default headers"]
+    B["auth_token<br/><i>scope=session</i><br/>POST /v1/auth/login → JWT (once per run)"]
+    C["auth_session<br/><i>scope=session</i><br/>http_session + Authorization: Bearer ..."]
+    D["api_manager<br/><i>scope=class</i><br/>ApiManager(auth_session) — facade over AuthAPI, TasksAPI"]
+    E["clean_tasks<br/><i>scope=function</i><br/>DELETE /v1/tasks before each test that asks"]
+    A --> B --> C --> D --> E
+```
+
+`auth_token` is session-scope because POST /login is ~200 ms; 100 tests
+at function-scope would burn 20 seconds doing nothing useful.
+`clean_tasks` is per-function because state isolation between tests is
+non-negotiable. → [ADR-005](docs/adr/0005-fixture-scopes-picked.md).
+
 ---
 
 <details>
@@ -185,50 +231,6 @@ If the debounce broke on a feature branch:
 AssertionError: Mock expected 1 GET call(s), got 3.
 Recorded URLs: ['…/api/tasks?q=a', '…/api/tasks?q=alp', '…/api/tasks?q=alpha']
 ```
-
-</details>
-
-<details>
-<summary><b>Architecture + fixture chain</b></summary>
-
-```mermaid
-flowchart LR
-    subgraph SUT
-        SPA["app/<br/>TaskFlow SPA"]
-        BE["backend/<br/>FastAPI + JWT"]
-    end
-    subgraph "test suites"
-        UIP["ui-pytest/"]
-        UIV["ui-vedro/"]
-        API["api/"]
-    end
-    subgraph "ci / reporting"
-        CI["GitHub Actions matrix"]
-        AL["Allure on Pages"]
-    end
-    UIP --> SPA
-    UIV --> SPA
-    API --> BE
-    UIP --> CI
-    UIV --> CI
-    API --> CI
-    CI --> AL
-```
-
-```mermaid
-flowchart LR
-    A["http_session<br/><i>session</i>"]
-    B["auth_token<br/><i>session</i>"]
-    C["auth_session<br/><i>session</i>"]
-    D["api_manager<br/><i>class</i>"]
-    E["clean_tasks<br/><i>function</i>"]
-    A --> B --> C --> D --> E
-```
-
-`auth_token` is session-scope because POST /login is ~200 ms; 100 tests
-at function-scope would burn 20 seconds doing nothing. `clean_tasks`
-is per-function because state isolation between tests is non-negotiable.
-→ [ADR-005](docs/adr/0005-fixture-scopes-picked.md).
 
 </details>
 
